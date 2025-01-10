@@ -116,7 +116,7 @@ function consumeOAuthCallbackQueryParams() {
 export async function callOAuthCallback(
   iface: StackClientInterface,
   redirectUrl: string,
-) {
+): Promise<Result<any>> {
   // note: this part of the function (until the return) needs
   // to be synchronous, to prevent race conditions when
   // callOAuthCallback is called multiple times in parallel

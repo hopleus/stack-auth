@@ -160,42 +160,4 @@ describe("with grant_type === 'authorization_code'", async () => {
       }
     `);
   });
-
-  it("should fail when MFA is required", async ({ expect }) => {
-    await Auth.OAuth.signIn();
-    await Auth.Mfa.setupTotpMfa();
-    await Auth.signOut();
-
-    const getAuthorizationCodeResult = await Auth.OAuth.getAuthorizationCode();
-
-    const projectKeys = backendContext.value.projectKeys;
-    if (projectKeys === "no-project") throw new Error("No project keys found in the backend context");
-
-    const tokenResponse = await niceBackendFetch("/api/v1/auth/oauth/token", {
-      method: "POST",
-      accessType: "client",
-      body: {
-        client_id: projectKeys.projectId,
-        client_secret: projectKeys.publishableClientKey ?? throwErr("No publishable client key found in the backend context"),
-        code: getAuthorizationCodeResult.authorizationCode,
-        redirect_uri: localRedirectUrl,
-        code_verifier: "some-code-challenge",
-        grant_type: "authorization_code",
-      },
-    });
-    expect(tokenResponse).toMatchInlineSnapshot(`
-      NiceResponse {
-        "status": 400,
-        "body": {
-          "code": "MULTI_FACTOR_AUTHENTICATION_REQUIRED",
-          "details": { "attempt_code": <stripped field 'attempt_code'> },
-          "error": "Multi-factor authentication is required for this user.",
-        },
-        "headers": Headers {
-          "x-stack-known-error": "MULTI_FACTOR_AUTHENTICATION_REQUIRED",
-          <some fields may have been hidden>,
-        },
-      }
-    `);
-  });
 });

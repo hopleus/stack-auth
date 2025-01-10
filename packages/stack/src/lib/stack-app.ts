@@ -1349,62 +1349,29 @@ class _StackClientAppImpl<HasTokenStore extends boolean, ProjectId extends strin
     );
   }
 
-  /**
-   * @deprecated
-   * TODO remove
-   */
-  protected async _experimentalMfa(error: KnownErrors['MultiFactorAuthenticationRequired'], session: InternalSession) {
-    const otp = prompt('Please enter the six-digit TOTP code from your authenticator app.');
-    if (!otp) {
-      throw new KnownErrors.InvalidTotpCode();
-    }
-
-    return await this._interface.totpMfa(
-      (error.details as any)?.attempt_code ?? throwErr("attempt code missing"),
-      otp,
-      session
-    );
-  }
-
-  /**
-   * @deprecated
-   * TODO remove
-   */
-  protected async _catchMfaRequiredError<T, E>(callback: () => Promise<Result<T, E>>): Promise<Result<T | { accessToken: string, refreshToken: string, newUser: boolean }, E>> {
-    try {
-      return await callback();
-    } catch (e) {
-      if (e instanceof KnownErrors.MultiFactorAuthenticationRequired) {
-        return Result.ok(await this._experimentalMfa(e, await this._getSession()));
-      }
-      throw e;
-    }
-  }
-
   async signInWithCredential(options: {
     email: string,
     password: string,
     noRedirect?: boolean,
-  }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["InvalidTotpCode"]>> {
+  }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["MultiFactorAuthenticationRequired"]>> {
     this._ensurePersistentTokenStore();
+
     const session = await this._getSession();
     let result;
+
     try {
-      result = await this._catchMfaRequiredError(async () => {
-        return await this._interface.signInWithCredential(options.email, options.password, session);
-      });
+      result = await this._interface.signInWithCredential(options.email, options.password, session);
     } catch (e) {
-      if (e instanceof KnownErrors.InvalidTotpCode) {
-        return Result.error(e);
-      }
       throw e;
     }
 
     if (result.status === 'ok') {
       await this._signInToAccountWithTokens(result.data);
+
       if (!options.noRedirect) {
         await this.redirectToAfterSignIn({ replace: true });
       }
+
       return Result.ok(undefined);
     } else {
       return Result.error(result.error);
@@ -1440,9 +1407,7 @@ class _StackClientAppImpl<HasTokenStore extends boolean, ProjectId extends strin
     this._ensurePersistentTokenStore();
     let result;
     try {
-      result = await this._catchMfaRequiredError(async () => {
-        return await this._interface.signInWithMagicLink(code);
-      });
+      result = await this._interface.signInWithMagicLink(code);
     } catch (e) {
       if (e instanceof KnownErrors.InvalidTotpCode) {
         return Result.error(e);
@@ -1467,24 +1432,24 @@ class _StackClientAppImpl<HasTokenStore extends boolean, ProjectId extends strin
     this._ensurePersistentTokenStore();
     const session = await this._getSession();
     let result;
-    try {
-      result = await this._catchMfaRequiredError(async () => {
-        const initiationResult = await this._interface.initiatePasskeyAuthentication({}, session);
-        if (initiationResult.status !== "ok") {
-          return Result.error(new KnownErrors.PasskeyAuthenticationFailed("Failed to get initiation options for passkey authentication"));
-        }
 
+    try {
+      const initiationResult = await this._interface.initiatePasskeyAuthentication({}, session);
+      if (initiationResult.status !== "ok") {
+        result = Result.error(new KnownErrors.PasskeyAuthenticationFailed("Failed to get initiation options for passkey authentication"));
+      } else {
         const { options_json, code } = initiationResult.data;
 
         // HACK: Override the rpID to be the actual domain
         if (options_json.rpId !== "THIS_VALUE_WILL_BE_REPLACED.example.com") {
           throw new StackAssertionError(`Expected returned RP ID from server to equal sentinel, but found ${options_json.rpId}`);
         }
+
         options_json.rpId = window.location.hostname;
 
         const authentication_response = await startAuthentication({ optionsJSON: options_json });
-        return await this._interface.signInWithPasskey({ authentication_response, code });
-      });
+        result = await this._interface.signInWithPasskey({ authentication_response, code });
+      }
     } catch (error) {
       if (error instanceof WebAuthnError) {
         return Result.error(new KnownErrors.PasskeyWebAuthnError(error.message, error.name));
@@ -1503,14 +1468,37 @@ class _StackClientAppImpl<HasTokenStore extends boolean, ProjectId extends strin
     }
   }
 
+  async signInWithTotpMfa(attemptCode: string, code: string): Promise<Result<undefined, KnownErrors["InvalidTotpCode"]>> {
+    this._ensurePersistentTokenStore();
+
+    const session = await this._getSession();
+    let result;
+
+    try {
+      result = await this._interface.signInWithTotpMfa(attemptCode, code, session);
+    } catch (e) {
+      if (e instanceof KnownErrors.InvalidTotpCode) {
+        return Result.error(e);
+      }
+
+      throw e;
+    }
+
+    if (result.status === 'ok') {
+      await this._signInToAccountWithTokens(result.data);
+      await this.redirectToAfterSignIn({ replace: true });
+
+      return Result.ok(undefined);
+    } else {
+      return Result.error(result.error);
+    }
+  }
 
   async callOAuthCallback() {
     this._ensurePersistentTokenStore();
     let result;
     try {
-      result = await this._catchMfaRequiredError(async () => {
-        return await callOAuthCallback(this._interface, this.urls.oauthCallback);
-      });
+      result = await callOAuthCallback(this._interface, this.urls.oauthCallback);
     } catch (e) {
       if (e instanceof KnownErrors.InvalidTotpCode) {
         alert("Invalid TOTP code. Please try signing in again.");
@@ -3345,7 +3333,7 @@ export type StackClientApp<HasTokenStore extends boolean = boolean, ProjectId ex
     readonly urls: Readonly<HandlerUrls>,
 
     signInWithOAuth(provider: string): Promise<void>,
-    signInWithCredential(options: { email: string, password: string, noRedirect?: boolean }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["InvalidTotpCode"]>>,
+    signInWithCredential(options: { email: string, password: string, noRedirect?: boolean }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["MultiFactorAuthenticationRequired"]>>,
     signUpWithCredential(options: { email: string, password: string, noRedirect?: boolean }): Promise<Result<undefined, KnownErrors["UserEmailAlreadyExists"] | KnownErrors["PasswordRequirementsNotMet"]>>,
     signInWithPasskey(): Promise<Result<undefined, KnownErrors["PasskeyAuthenticationFailed"]| KnownErrors["InvalidTotpCode"] | KnownErrors["PasskeyWebAuthnError"]>>,
     callOAuthCallback(): Promise<boolean>,
@@ -3358,6 +3346,8 @@ export type StackClientApp<HasTokenStore extends boolean = boolean, ProjectId ex
     getTeamInvitationDetails(code: string): Promise<Result<{ teamDisplayName: string }, KnownErrors["VerificationCodeError"]>>,
     verifyEmail(code: string): Promise<Result<undefined, KnownErrors["VerificationCodeError"]>>,
     signInWithMagicLink(code: string): Promise<Result<undefined, KnownErrors["VerificationCodeError"] | KnownErrors["InvalidTotpCode"]>>,
+
+    signInWithTotpMfa(attemptCode: string, code: string): Promise<Result<undefined, KnownErrors["InvalidTotpCode"]>>,
 
     redirectToOAuthCallback(): Promise<void>,
     useUser(options: GetUserOptions<HasTokenStore> & { or: 'redirect' }): ProjectCurrentUser<ProjectId>,

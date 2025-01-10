@@ -124,14 +124,6 @@ export const passkeySignInVerificationCodeHandler = createVerificationCodeHandle
 
     const user = passkey.projectUser;
 
-    if (user.requiresTotpMfa) {
-      throw await createMfaRequiredError({
-        project,
-        isNewUser: false,
-        userId: user.projectUserId,
-      });
-    }
-
     const { refreshToken, accessToken } = await createAuthTokens({
       projectId: project.id,
       projectUserId: user.projectUserId,
