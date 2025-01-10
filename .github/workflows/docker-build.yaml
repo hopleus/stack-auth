@@ -21,7 +21,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_REPO }}/server
+          images: ghcr.io/hopleus/stack-auth
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' }}
@@ -43,12 +43,13 @@ jobs:
             echo "should_push=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Login to DockerHub
+      - name: Login to GHCR
         if: steps.push-condition.outputs.should_push == 'true'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
