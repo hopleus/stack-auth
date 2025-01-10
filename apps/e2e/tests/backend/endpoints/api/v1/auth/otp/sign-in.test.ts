@@ -144,39 +144,6 @@ it("should sign up a new user even if one already exists with email auth disable
   `);
 });
 
-it("should not allow signing in when MFA is required", async ({ expect }) => {
-  await Auth.Otp.signIn();
-  await Auth.Mfa.setupTotpMfa();
-  await Auth.signOut();
-
-  const mailbox = backendContext.value.mailbox;
-  await Auth.Otp.sendSignInCode();
-  const messages = await mailbox.fetchMessages();
-  const message = messages.findLast((message) => message.subject.includes("Sign in to")) ?? throwErr("Sign-in code message not found");
-  const signInCode = message.body?.text.match(/http:\/\/localhost:12345\/some-callback-url\?code=([a-zA-Z0-9]+)/)?.[1] ?? throwErr("Sign-in URL not found");
-  const response = await niceBackendFetch("/api/v1/auth/otp/sign-in", {
-    method: "POST",
-    accessType: "client",
-    body: {
-      code: signInCode,
-    },
-  });
-  expect(response).toMatchInlineSnapshot(`
-    NiceResponse {
-      "status": 400,
-      "body": {
-        "code": "MULTI_FACTOR_AUTHENTICATION_REQUIRED",
-        "details": { "attempt_code": <stripped field 'attempt_code'> },
-        "error": "Multi-factor authentication is required for this user.",
-      },
-      "headers": Headers {
-        "x-stack-known-error": "MULTI_FACTOR_AUTHENTICATION_REQUIRED",
-        <some fields may have been hidden>,
-      },
-    }
-  `);
-});
-
 it("should sign in with otp code", async ({ expect }) => {
   await Auth.Otp.sendSignInCode();
   const mailbox = backendContext.value.mailbox;

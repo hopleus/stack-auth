@@ -78,14 +78,6 @@ export const signInVerificationCodeHandler = createVerificationCodeHandler({
       });
     }
 
-    if (user.requires_totp_mfa) {
-      throw await createMfaRequiredError({
-        project,
-        isNewUser: data.is_new_user,
-        userId: user.id,
-      });
-    }
-
     const { refreshToken, accessToken } = await createAuthTokens({
       projectId: project.id,
       projectUserId: user.id,

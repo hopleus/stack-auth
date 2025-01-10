@@ -112,13 +112,6 @@ export class OAuthModel implements AuthorizationCodeModel {
           },
         },
       });
-      if (projectUser.requiresTotpMfa) {
-        throw await createMfaRequiredError({
-          project: projectPrismaToCrud(projectUser.project),
-          userId: projectUser.projectUserId,
-          isNewUser: false,
-        });
-      }
 
       await prismaClient.projectUserRefreshToken.create({
         data: {

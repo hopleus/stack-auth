@@ -724,29 +724,39 @@ export class StackClientInterface {
     }
   }
 
-  async totpMfa(
+  async signInWithTotpMfa(
     attemptCode: string,
     totp: string,
     session: InternalSession
-  ) {
-    const res = await this.sendClientRequest("/auth/mfa/sign-in", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
+  ): Promise<Result<{ accessToken: string, refreshToken: string, newUser: boolean }, KnownErrors["InvalidTotpCode"]>> {
+    const res = await this.sendClientRequestAndCatchKnownError(
+      "/auth/mfa/sign-in",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          code: attemptCode,
+          type: "totp",
+          totp: totp,
+        }),
       },
-      body: JSON.stringify({
-        code: attemptCode,
-        type: "totp",
-        totp: totp,
-      }),
-    }, session);
+      session,
+      [KnownErrors.InvalidTotpCode],
+    );
 
-    const result = await res.json();
-    return {
+    if (res.status === "error") {
+      return Result.error(res.error);
+    }
+
+    const result = await res.data.json();
+
+    return Result.ok({
       accessToken: result.access_token,
       refreshToken: result.refresh_token,
       newUser: result.is_new_user,
-    };
+    });
   }
 
   async signInWithCredential(
