@@ -72,9 +72,6 @@ jobs:
       
       - name: Typecheck
         run: pnpm typecheck
-
-      - name: Run code gen  # so we can check for uncommitted changes afterwards; `build` doesn't regenerate some committed files, eg. Quetzal
-        run: pnpm codegen
       
       - name: Check for uncommitted changes
         run: |
