@@ -21,7 +21,6 @@ import { useTranslation } from "../lib/translations";
 import { FormWarningText } from "./elements/form-warning";
 import { KnownErrors } from "@stackframe/stack-shared";
 import { throwErr } from "@stackframe/stack-shared/dist/utils/errors";
-import {Json} from "@stackframe/stack-shared/dist/utils/json";
 
 function OTP(props: {
   onBack: () => void,
