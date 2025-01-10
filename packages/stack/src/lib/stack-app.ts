@@ -1353,7 +1353,7 @@ class _StackClientAppImpl<HasTokenStore extends boolean, ProjectId extends strin
     email: string,
     password: string,
     noRedirect?: boolean,
-  }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["MultiFactorAuthenticationRequired"] | KnownErrors["InvalidTotpCode"]>> {
+  }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["MultiFactorAuthenticationRequired"]>> {
     this._ensurePersistentTokenStore();
 
     const session = await this._getSession();
@@ -1362,10 +1362,6 @@ class _StackClientAppImpl<HasTokenStore extends boolean, ProjectId extends strin
     try {
       result = await this._interface.signInWithCredential(options.email, options.password, session);
     } catch (e) {
-      if (e instanceof KnownErrors.InvalidTotpCode) {
-        return Result.error(e);
-      }
-
       throw e;
     }
 
@@ -3337,7 +3333,7 @@ export type StackClientApp<HasTokenStore extends boolean = boolean, ProjectId ex
     readonly urls: Readonly<HandlerUrls>,
 
     signInWithOAuth(provider: string): Promise<void>,
-    signInWithCredential(options: { email: string, password: string, noRedirect?: boolean }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["InvalidTotpCode"]>>,
+    signInWithCredential(options: { email: string, password: string, noRedirect?: boolean }): Promise<Result<undefined, KnownErrors["EmailPasswordMismatch"] | KnownErrors["MultiFactorAuthenticationRequired"]>>,
     signUpWithCredential(options: { email: string, password: string, noRedirect?: boolean }): Promise<Result<undefined, KnownErrors["UserEmailAlreadyExists"] | KnownErrors["PasswordRequirementsNotMet"]>>,
     signInWithPasskey(): Promise<Result<undefined, KnownErrors["PasskeyAuthenticationFailed"]| KnownErrors["InvalidTotpCode"] | KnownErrors["PasskeyWebAuthnError"]>>,
     callOAuthCallback(): Promise<boolean>,

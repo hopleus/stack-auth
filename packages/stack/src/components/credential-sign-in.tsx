@@ -21,6 +21,7 @@ import { useTranslation } from "../lib/translations";
 import { FormWarningText } from "./elements/form-warning";
 import { KnownErrors } from "@stackframe/stack-shared";
 import { throwErr } from "@stackframe/stack-shared/dist/utils/errors";
+import {Json} from "@stackframe/stack-shared/dist/utils/json";
 
 function OTP(props: {
   onBack: () => void,
@@ -112,7 +113,8 @@ export function CredentialSignIn() {
       }
     } catch (e) {
       if (e instanceof KnownErrors.MultiFactorAuthenticationRequired) {
-        setNonce(e.details?.attempt_code ?? throwErr("attempt code missing"));
+        const details: { attempt_code: string } | undefined = e.details as any;
+        setNonce(details?.attempt_code ?? throwErr("attempt code missing"));
       } else {
         throw e;
       }

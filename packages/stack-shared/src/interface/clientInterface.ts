@@ -763,7 +763,7 @@ export class StackClientInterface {
     email: string,
     password: string,
     session: InternalSession
-  ): Promise<Result<{ accessToken: string, refreshToken: string }, KnownErrors["EmailPasswordMismatch"]>> {
+  ): Promise<Result<{ accessToken: string, refreshToken: string }, KnownErrors["EmailPasswordMismatch"] | KnownErrors["MultiFactorAuthenticationRequired"]>> {
     const res = await this.sendClientRequestAndCatchKnownError(
       "/auth/password/sign-in",
       {
@@ -777,7 +777,7 @@ export class StackClientInterface {
         }),
       },
       session,
-      [KnownErrors.EmailPasswordMismatch]
+      [KnownErrors.EmailPasswordMismatch, KnownErrors.MultiFactorAuthenticationRequired]
     );
 
     if (res.status === "error") {
